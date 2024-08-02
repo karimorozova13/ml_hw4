@@ -35,35 +35,13 @@ mi = mutual_info_regression(X, y,
     
 mi = pd.Series(mi, name='MI scores', index=X.columns).sort_values()
 
-mi.sample(5)
 
 # %%
 from sklearn.model_selection import train_test_split
 
-X_train, X_test, y_train, y_test = train_test_split(autos.drop('price', axis=1), y, 
+X_train, X_test, y_train, y_test = train_test_split(X, y, 
                                                     test_size=0.33, 
                                                     random_state=42)
-
-# %%
-from sklearn.preprocessing import StandardScaler
-
-scaler = StandardScaler().set_output(transform='pandas')
-
-X_train_num = X_train.select_dtypes(exclude='object')
-X_test_num = X_test.select_dtypes(exclude='object')
-
-X_train_num = scaler.fit_transform(X_train_num)
-X_test_num = scaler.transform(X_test_num)
-
-# %%
-from category_encoders import TargetEncoder
-encoder = TargetEncoder()
-
-X_train_cat = X_train.select_dtypes(include='object')
-X_test_cat = X_test.select_dtypes(include='object')
-
-X_train_cat = encoder.fit_transform(X_train_cat, y_train)
-X_test_cat = encoder.transform(X_test_cat)
 
 # %%
 from sklearn.ensemble import GradientBoostingRegressor
@@ -71,37 +49,19 @@ from sklearn.ensemble import GradientBoostingRegressor
 model = GradientBoostingRegressor(learning_rate=0.3,
                                   subsample=0.75,
                                   max_features='sqrt',
-                                  random_state=42).fit(
-                                      pd.concat([X_train_cat, X_train_num], axis=1),
-                                      y_train)
-
-# %%
-from sklearn.ensemble import RandomForestRegressor
-
-model_forest = RandomForestRegressor(random_state=42)
-model_forest.fit( pd.concat([X_train_cat, X_train_num], axis=1), y_train)
-
-# Feature importances
-importances = pd.Series(model_forest.feature_importances_, index=X.columns).sort_values(ascending=False)
-
-
-# %%
-import matplotlib.pyplot as plt
-import numpy as np
-
-plt.figure(figsize=(6, 8))
-plt.barh(np.arange(len(mi)), mi)
-plt.yticks(np.arange(len(mi)), mi.index)
-plt.title('Mutual Information Scores')
-
-plt.show()
+                                  random_state=42).fit(X_train, y_train)
 
 # %%
 feature_importances = pd.Series(model.feature_importances_, index=X.columns).sort_values()
 
 comparison = pd.DataFrame({'MI scores': mi, 'Feature Importances': feature_importances})
 
-comparison['pct_rank'] = comparison['Feature Importances'].rank(pct=True)
+# unification
+comparison['MI scores rank'] = comparison['MI scores'].rank(pct=True)
+comparison['Feature Importances rank'] = comparison['Feature Importances'].rank(pct=True)
+
+# sort by MI
+comparison = comparison.sort_values(by='MI scores', ascending=False)
 
 print(comparison)
 
@@ -109,7 +69,7 @@ print(comparison)
 import seaborn as sns
 import matplotlib.pyplot as plt 
 
-comparison_long = pd.melt(comparison.reset_index(), id_vars='index', value_vars=['MI scores', 'Feature Importances'], 
+comparison_long = pd.melt(comparison.reset_index(), id_vars='index', value_vars=['MI scores rank', 'Feature Importances rank'], 
                           var_name='Metric', value_name='Value')
 
 sns.set_theme(style="whitegrid")
